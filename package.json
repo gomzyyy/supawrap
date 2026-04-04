@@ -1,0 +1,27 @@
+{
+  "name": "supabase-wrapper",
+  "version": "1.0.0",
+  "description": "A TypeScript package that wraps the Supabase client in a reusable class and exposes common methods for Create, Read, Update, and Delete operations.",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "tsc",
+    "dev": "tsc --watch"
+  },
+  "author": "gomzyyy",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^25.5.2",
+    "typescript": "^6.0.2"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.101.1",
+    "tus-js-client": "^4.3.1"
+  },
+  "files": [
+    "dist",
+    "LICENSE",
+    "README.md"
+  ]
+}
