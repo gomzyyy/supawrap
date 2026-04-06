@@ -1,4 +1,4 @@
-import { TableBehaviour } from "@/types/index.js";
+import { TableBehaviour } from "../../../types/index.js";
 
 export function getDefaultTableBehaviour<T>(): TableBehaviour<T> {
     return {

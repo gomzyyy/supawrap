@@ -1,4 +1,4 @@
-import { CRUDOptions, OrderBy } from "@/types/index.js";
+import { CRUDOptions, OrderBy } from "../../../../types/index.js";
 import { ClientWrapper } from "../../client-wrapper/index.js";
 
 export class Chainable<T> {

@@ -4,20 +4,9 @@
   <strong>⚡ MongoDB-like experience for Supabase</strong>
 </p>
 
-<p align="center">
-  A type-safe, developer-first data layer for Supabase.
-</p>
+<p align="center">A type-safe, developer-first data layer for Supabase.</p>
 
-<p align="center">
-  Reduce boilerplate. Improve DX. Ship faster.
-</p>
-
-<p align="center">
-  <img alt="npm" src="https://img.shields.io/npm/v/supawrapper" />
-  <img alt="license" src="https://img.shields.io/npm/l/supawrapper" />
-  <img alt="typescript" src="https://img.shields.io/badge/TypeScript-Friendly-blue" />
-  <img alt="supabase" src="https://img.shields.io/badge/Supabase-Compatible-green" />
-</p>
+<p align="center">Reduce boilerplate. Improve DX. Ship faster.</p>
 
 ---
 
@@ -25,7 +14,7 @@
 
 If you've used Supabase, you already know:
 
-``` ts
+```ts
 const { data, error } = await supabase
   .from("users")
   .select("*")
@@ -34,20 +23,31 @@ const { data, error } = await supabase
   .limit(10);
 ```
 
--   ❌ Verbose & repetitive\
--   ❌ Hard to reuse queries\
--   ❌ Logic scattered across code\
--   ❌ Realtime setup is repetitive\
--   ❌ Debugging is manual and painful
+- ❌ **Verbose & repetitive**: Repeated `.select('*')` and `{ data, error }` unwrapping boilerplate.
+- ❌ **Hard to reuse queries**: Filtering logic is glued to the raw client instantiation.
+- ❌ **Logic scattered across code**: Common queries have to be rewritten every time they're needed.
+- ❌ **Silent failures**: Invalid data types and schemas pass silently without middleware.
+- ❌ **Debugging is manual and painful**: When a query fails, you lack robust built-in logging context.
+- ❌ **Timestamps are manual**: Easy to forget injecting `created_at` or `updated_at`.
 
-------------------------------------------------------------------------
+---
 
 ## ✅ The Solution
 
-``` ts
+Supawrapper collapses query handling and database logic into a **seamless abstraction layer**. We automate the annoying parts: typed API wrappers, automatic validation with standard tools (Zod), injected timestamps, and fluent APIs, so you can write:
+
+```ts
 const users = new ClientWrapper<User>(supabase, "users");
 
-const data = await users.get({
+// Fluent chained API
+const data = await users.chain()
+  .where("is_active", true)
+  .orderBy("created_at", "desc")
+  .limit(10)
+  .get();
+
+// OR Structured access
+const res = await users.get({
   eq: [{ key: "is_active", value: true }],
   sortBy: "created_at",
   orderBy: "dec",
@@ -61,20 +61,15 @@ const data = await users.get({
 
 Supawrapper **does NOT replace your Supabase client**.
 
-👉 You pass your own `supabase` instance:
-
 ```ts
 const supabase = createClient(URL, KEY);
 const users = new ClientWrapper<User>(supabase, "users");
 ```
 
-### Why this matters:
-
-- ✅ **No lock-in** — use Supabase directly anytime  
-- ✅ **Other flows remain untouched** (auth, rpc invocations, storage, etc.)  
-- ✅ **No interference with existing queries or logic**  
-- ✅ **Drop-in integration** into existing projects  
-- ✅ **Safe to adopt incrementally** (use only where needed)
+- ✅ **No lock-in** — use Supabase directly anytime
+- ✅ **Other flows remain untouched** (auth, rpc invocations, storage, etc.)
+- ✅ **Drop-in integration** into existing projects
+- ✅ **Safe to adopt incrementally**
 
 > Supawrapper only handles the **boilerplate layer**, not your core Supabase client.
 
@@ -82,21 +77,24 @@ const users = new ClientWrapper<User>(supabase, "users");
 
 ## ✨ Features
 
--   Fully typed CRUD wrapper
--   Realtime listeners
--   Broadcast channels
--   Soft delete support
--   Batch updates
--   Bulk inserts
--   Query filters
--   Developer-friendly abstractions
+- Fully typed CRUD wrapper
+- Schema validation with Zod
+- Auto-handled timestamps
+- Presets (smart reusable queries)
+- Chainable query API
+- Raw query access
+- Realtime listeners
+- Broadcast channels
+- Soft delete support
+- Batch updates & bulk inserts
+- Developer-friendly abstractions
 
-------------------------------------------------------------------------
+---
 
 ## 📦 Installation
 
 ```bash
-npm install supawrapper @supabase/supabase-js
+npm install supawrapper @supabase/supabase-js zod
 ```
 
 ---
@@ -105,11 +103,7 @@ npm install supawrapper @supabase/supabase-js
 
 ```ts
 import { createClient } from "@supabase/supabase-js";
-import {
-  ClientWrapper,
-  RealtimeListener,
-  BroadcastChannel
-} from "supawrapper";
+import { ClientWrapper, RealtimeListener, BroadcastChannel, defineTable } from "supawrapper";
 
 const supabase = createClient(
   process.env.SUPABASE_URL!,
@@ -130,6 +124,7 @@ interface User {
   email: string;
   is_active: boolean;
   created_at: string;
+  updated_at?: string;
 }
 ```
 
@@ -138,10 +133,7 @@ interface User {
 ## Create Wrapper
 
 ```ts
-const users = new ClientWrapper<User>(
-  supabase,
-  "users"
-);
+const users = new ClientWrapper<User>(supabase, "users");
 ```
 
 ---
@@ -153,6 +145,17 @@ const users = new ClientWrapper<User>(
   supabase,
   "users",
   {
+    timestamps: {
+      autoTimestamps: true,
+      config: {
+        createdAtKey: "created_at",
+        updatedAtKey: "updated_at",
+      },
+    },
+    validator: {
+      enabled: true,
+      schema: userSchema, // z.ZodSchema<User>
+    },
     supportsSoftDeletion: true,
     softDeleteConfig: {
       flagKey: "is_deleted",
@@ -172,13 +175,34 @@ const users = new ClientWrapper<User>(
 
 ---
 
-## Supported Client Config
+## Supported Client Config (`TableBehaviour<Schema>`)
 
 ```ts
-interface TableBehaviour {
+interface TableBehaviour<Schema = unknown> {
+  timestamps?: {
+    autoTimestamps?: boolean;
+    config?: {
+      createdAtKey?: string;
+      updatedAtKey?: string;
+    };
+  };
+  validator?: {
+    enabled?: boolean;
+    schema?: ZodSchema<Schema>;
+  };
   supportsSoftDeletion?: boolean;
-  softDeleteConfig?: SoftDeleteConfig;
-  debug?: DebugConfig;
+  softDeleteConfig?: {
+    flagKey?: string | null;
+    timestampKey?: string | null;
+  };
+  debug?: {
+    returnHintsOnError?: boolean;
+    hintsConfig?: {
+      includeTableMetadata?: boolean;
+      includeRawResults?: boolean;
+      includeArguments?: boolean;
+    };
+  };
 }
 ```
 
@@ -188,8 +212,8 @@ interface TableBehaviour {
 
 ```ts
 await users.createOne({
-  name: "Gomzy",
-  email: "gomzy@example.com",
+  name: "Test User",
+  email: "test.user@example.com",
   is_active: true,
 });
 ```
@@ -200,14 +224,8 @@ await users.createOne({
 
 ```ts
 await users.createMany([
-  {
-    name: "User 1",
-    email: "u1@test.com",
-  },
-  {
-    name: "User 2",
-    email: "u2@test.com",
-  },
+  { name: "User One", email: "user.one@example.com" },
+  { name: "User Two", email: "user.two@example.com" },
 ]);
 ```
 
@@ -216,7 +234,7 @@ await users.createMany([
 ## Get By ID
 
 ```ts
-const user = await users.getById("user-id");
+const user = await users.getById("00000000-0000-0000-0000-000000000001");
 ```
 
 ---
@@ -225,12 +243,7 @@ const user = await users.getById("user-id");
 
 ```ts
 const res = await users.get({
-  eq: [
-    {
-      key: "is_active",
-      value: true,
-    },
-  ],
+  eq: [{ key: "is_active", value: true }],
   sortBy: "created_at",
   orderBy: "dec",
   limit: 10,
@@ -239,34 +252,40 @@ const res = await users.get({
 
 ---
 
-## Query Options
+## Query Options (`CRUDOptions<Table>`)
 
 ```ts
 interface CRUDOptions<Table> {
-  eq?: { key: keyof Table; value: Table[keyof Table] }[];
-  sortBy?: keyof Table;
-  orderBy?: "asc" | "dec";
-  limit?: number;
-  single?: boolean;
+  eq?:       { key: keyof Table; value: Table[keyof Table] }[];
+  gt?:       { key: keyof Table; value: Table[keyof Table] }[];
+  gte?:      { key: keyof Table; value: Table[keyof Table] }[];
+  lt?:       { key: keyof Table; value: Table[keyof Table] }[];
+  lte?:      { key: keyof Table; value: Table[keyof Table] }[];
+  sortBy?:   keyof Table;
+  orderBy?:  "asc" | "dec";
+  limit?:    number;
+  single?:   boolean;
   maybeSingle?: boolean;
-  or?: string;
+  or?:       string;
   contains?: { key: keyof Table; value: Table[keyof Table] }[];
   overlaps?: { key: keyof Table; value: Table[keyof Table][] }[];
-  ilike?: { key: keyof Table; value: string }[];
-  inValue?: { key: keyof Table; value: Table[keyof Table][] };
-  search?: string;
+  ilike?:    { key: keyof Table; value: Table[keyof Table] }[];
+  inValue?:  { key: keyof Table; value: Table[keyof Table][] };
+  search?:      string;
   searchFields?: (keyof Table)[];
-  page?: number;
-  offset?: number;
+  page?:    number;
+  offset?:  number;
 }
 ```
+
+> **Note:** `UpdateTableOpts<Table>` omits `limit`, `single`, `maybeSingle`, `orderBy`, `sortBy`, `search`, `searchFields`, `page`, and `offset` — leaving only filter-related options for update operations.
 
 ---
 
 ## Update By ID
 
 ```ts
-await users.updateById("user-id", {
+await users.updateById("00000000-0000-0000-0000-000000000001", {
   name: "Updated Name",
 });
 ```
@@ -277,17 +296,8 @@ await users.updateById("user-id", {
 
 ```ts
 await users.batchUpdate(
-  {
-    is_active: false,
-  },
-  {
-    eq: [
-      {
-        key: "role",
-        value: "inactive",
-      },
-    ],
-  }
+  { is_active: false },
+  { eq: [{ key: "role", value: "inactive" }] }
 );
 ```
 
@@ -296,7 +306,7 @@ await users.batchUpdate(
 ## Delete By ID
 
 ```ts
-await users.deleteById("user-id");
+await users.deleteById("00000000-0000-0000-0000-000000000001");
 ```
 
 ---
@@ -304,15 +314,8 @@ await users.deleteById("user-id");
 ## Soft Delete / Restore
 
 ```ts
-await users.setSoftDeletedById(
-  "user-id",
-  true
-);
-
-await users.setSoftDeletedById(
-  "user-id",
-  false
-);
+await users.setSoftDeletedById("00000000-0000-0000-0000-000000000001", true);  // soft delete
+await users.setSoftDeletedById("00000000-0000-0000-0000-000000000001", false); // restore
 ```
 
 ---
@@ -320,7 +323,7 @@ await users.setSoftDeletedById(
 ## Exists
 
 ```ts
-const exists = await users.exists("user-id");
+const exists = await users.exists("00000000-0000-0000-0000-000000000001");
 ```
 
 ---
@@ -329,141 +332,256 @@ const exists = await users.exists("user-id");
 
 ```ts
 const count = await users.count({
-  eq: [
-    {
-      key: "is_active",
-      value: true,
-    },
-  ],
+  eq: [{ key: "is_active", value: true }],
 });
+```
+
+---
+
+# 🧠 Schema & Validation
+
+Supawrapper integrates Zod validation directly into the table config. Enable it via the `validator` option in `TableBehaviour` — all `createOne` and `updateById` calls will be validated automatically.
+
+```ts
+import { z } from "zod";
+
+const userSchema = z.object({
+  id: z.string().uuid().optional(),
+  name: z.string(),
+  email: z.string().email(),
+  is_active: z.boolean().default(true),
+});
+
+const users = defineTable<User, Partial<User>, GetTableOpts<User>, UpdateTableOpts<User>>(
+  supabase,
+  "users",
+  {
+    validator: {
+      enabled: true,
+      schema: userSchema,
+    },
+  }
+);
+```
+
+Invalid data throws a meaningful error before it ever reaches Supabase.
+
+---
+
+# ⏱ Auto Timestamps
+
+Enable `autoTimestamps` to have `created_at` and `updated_at` managed for you. Key names are configurable.
+
+```ts
+const users = defineTable<User, Partial<User>, GetTableOpts<User>, UpdateTableOpts<User>>(
+  supabase,
+  "users",
+  {
+    timestamps: {
+      autoTimestamps: true,
+      config: {
+        createdAtKey: "created_at",
+        updatedAtKey: "updated_at",
+      },
+    },
+  }
+);
+
+await users.createOne({ name: "Test User", email: "test.user@example.com" });
+// → created_at and updated_at injected automatically
+```
+
+---
+
+# ⚡ Presets (Smart Queries)
+
+Presets are named, reusable queries for common access patterns.
+They expose a typed API perfectly reflecting the wrapper type generic constraints.
+
+```ts
+const activeUsers = await users.presets.active();
+const recentUsers = await users.presets.recent(5);
+const userPosts   = await posts.presets.byUser("00000000-0000-0000-0000-000000000001");
+```
+
+### Supported Preset Methods (`Presets<T>`)
+```ts
+class Presets<T> {
+  active(): Promise<Response<T | T[], unknown>>;
+  recent(limit?: number): Promise<Response<T | T[], unknown>>;
+  byUser(userId: string): Promise<Response<T | T[], unknown>>;
+  inactive(): Promise<Response<T | T[], unknown>>;
+  deleted(): Promise<Response<T | T[], unknown>>;
+  recentlyUpdated(limit?: number): Promise<Response<T | T[], unknown>>;
+  createdWithin(days: number): Promise<Response<T | T[], unknown>>;
+  byUsers(userIds: string[]): Promise<Response<T | T[], unknown>>;
+  countActive(): Promise<Response<number, unknown>>;
+  countDeleted(): Promise<Response<number, unknown>>;
+}
+```
+
+---
+
+# 🔗 Chainable Queries
+
+The `.chain()` API gives you a fluent builder pattern to execute fully typed queries without crafting complex configuration objects.
+
+```ts
+const results = await users.chain()
+  .where("is_active", true)
+  .orderBy("created_at", "desc")
+  .limit(10)
+  .get();
+```
+
+### Supported Chain Methods (`Chainable<T>`)
+```ts
+class Chainable<T> {
+  where(key: keyof T, value: T[keyof T]): this;
+  gt(key: keyof T, value: T[keyof T]): this;
+  gte(key: keyof T, value: T[keyof T]): this;
+  lt(key: keyof T, value: T[keyof T]): this;
+  lte(key: keyof T, value: T[keyof T]): this;
+  contains(key: keyof T, value: T[keyof T]): this;
+  overlaps(key: keyof T, values: T[keyof T][]): this;
+  in(key: keyof T, values: T[keyof T][]): this;
+  or(condition: string): this;
+  orderBy(key: keyof T, order?: OrderBy): this;
+  limit(n: number): this;
+  page(p: number, pageSize: number): this;
+  get(): Promise<Response<T | T[], unknown>>;
+  first(): Promise<Response<T | T[], unknown>>;
+}
+```
+
+| Method | Description |
+|---|---|
+| `.where(key, value)` | Exact match filter |
+| `.orderBy(key, dir)` | Sort results |
+| `.limit(n)` | Cap result count |
+| `.gt / .gte / .lt / .lte` | Numeric/date comparisons |
+| `.contains(key, value)` | JSON contains |
+| `.overlaps(key, value)` | Array overlaps |
+| `.in(key, values)` | Match array of values |
+| `.or(condition)` | Raw OR operator conditions |
+| `.page(p, limit)` | Handle pagination offset / limit |
+| `.first()` | Return single record |
+| `.get()` | Execute query and return |
+
+---
+
+# 🛠 Raw Query Access
+
+```ts
+const response = await users.rawQuery((query) =>
+  query.select("*").eq("is_active", true).limit(5)
+);
+```
+
+Raw queries still go through Supawrapper's response and debug layer.
+
+---
+
+# 💡 Why Supawrapper?
+
+| Feature | Supabase | Supawrapper |
+|---|---|---|
+| Boilerplate | ❌ High | ✅ Minimal |
+| Reusability | ❌ Manual | ✅ Structured |
+| Type Safety | ⚠ Limited | ✅ Strong |
+| Timestamps | ❌ Manual | ✅ Automatic |
+| Validation | ❌ Manual | ✅ Built-in |
+| Chainable Queries | ❌ Verbose | ✅ Fluent API |
+| Realtime | ❌ Verbose | ✅ Simple |
+| Debugging | ❌ Manual | ✅ Configurable |
+
+---
+
+# 🔥 End-to-End Example
+
+```ts
+import { z } from "zod";
+import { defineTable } from "supawrapper";
+import { GetTableOpts, UpdateTableOpts } from "supawrapper/types";
+
+const postSchema = z.object({
+  id: z.string().uuid().optional(),
+  user_id: z.string(),
+  title: z.string(),
+  is_published: z.boolean().default(false),
+});
+
+interface Post {
+  id: string;
+  user_id: string;
+  title: string;
+  is_published: boolean;
+  created_at: string;
+  updated_at?: string;
+}
+
+const posts = defineTable<Post, Partial<Post>, GetTableOpts<Post>, UpdateTableOpts<Post>>(
+  supabase,
+  "posts",
+  {
+    timestamps: { autoTimestamps: true },
+    validator: { enabled: true, schema: postSchema },
+    supportsSoftDeletion: true,
+    softDeleteConfig: { flagKey: "is_deleted", timestampKey: "deleted_at" },
+  }
+);
+
+// Create
+await posts.createOne({
+  user_id: "00000000-0000-0000-0000-000000000001",
+  title: "Hello Supawrapper",
+});
+
+// Chain query
+const recent = await posts.chain()
+  .where("is_published", true)
+  .orderBy("created_at", "desc")
+  .limit(5)
+  .get();
+
+// Preset
+const userPosts = await posts.presets.byUser("00000000-0000-0000-0000-000000000001");
 ```
 
 ---
 
 # ⚡ Realtime Listener
 
-## Create Listener
-
 ```ts
-const userListener =
-  new RealtimeListener<User>(
-    supabase,
-    "users"
-  );
-```
+const userListener = new RealtimeListener<User>(supabase, "users");
 
----
+userListener.onInsert((payload) => console.log(payload.new));
+userListener.onUpdate((payload) => console.log(payload.new));
+userListener.onDelete((payload) => console.log(payload.old));
+userListener.onChange((payload) => console.log(payload));
 
-## Listen for Inserts
-
-```ts
-userListener.onInsert((payload) => {
-  console.log(payload.new);
-});
-```
-
----
-
-## Listen for Updates
-
-```ts
-userListener.onUpdate((payload) => {
-  console.log(payload.new);
-});
-```
-
----
-
-## Listen for Deletes
-
-```ts
-userListener.onDelete((payload) => {
-  console.log(payload.old);
-});
-```
-
----
-
-## Listen for All Changes
-
-```ts
-userListener.onChange((payload) => {
-  console.log(payload);
-});
-```
-
----
-
-## Cleanup Listener
-
-```ts
 await userListener.unsubscribe();
 ```
-
----
-
-## Realtime Channel Config
-
-```ts
-interface RealtimeChannelConfig {
-  channelId?: string;
-}
-```
-
----
 
 ## Custom Channel ID
 
 ```ts
-const listener =
-  new RealtimeListener<User>(
-    supabase,
-    "users",
-    {
-      channelId: "dashboard-live"
-    }
-  );
+const listener = new RealtimeListener<User>(supabase, "users", {
+  channelId: "dashboard-live",
+});
 ```
 
 ---
 
 # 📡 Broadcast Channel
 
-## Create Channel
-
 ```ts
-const chat =
-  new BroadcastChannel(
-    supabase,
-    "chat-room"
-  );
-```
+const chat = new BroadcastChannel(supabase, "chat-room");
 
----
+await chat.send("message", { text: "Hello world" });
 
-## Send Event
+chat.on("message", (payload) => console.log(payload));
 
-```ts
-await chat.send("message", {
-  text: "Hello world",
-});
-```
-
----
-
-## Listen to Event
-
-```ts
-chat.on("message", (payload) => {
-  console.log(payload);
-});
-```
-
----
-
-## Cleanup
-
-```ts
 await chat.unsubscribe();
 ```
 
@@ -480,18 +598,10 @@ await chat.unsubscribe();
 
 # 🤝 Contributing
 
-Contributions, issues, and feature requests are welcome.
-
-Feel free to open a PR or issue.
+Contributions, issues, and feature requests are welcome. Feel free to open a PR or issue.
 
 ---
 
 # 📄 License
 
 MIT License
-
----
-
-# ❤️ Author
-
-Built with love by **gomzyyy**

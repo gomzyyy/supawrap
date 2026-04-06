@@ -8,8 +8,8 @@ import {
   UpdateTableOpts,
 } from "../../../types/index.js";
 import { BaseClientCRUDWrapper } from "../base/client/index.js";
-import { APIResponse } from "@/core/response/index.js";
-import { APIError } from "@/core/errors/index.js";
+import { APIResponse } from "../../../core/response/index.js";
+import { APIError } from "../../../core/errors/index.js";
 import { Presets } from "./presets/presets.js";
 import { Chainable } from "../base/client/chainable.js";
 import { getDefaultTableBehaviour } from "./defaults.js";

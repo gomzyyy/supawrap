@@ -1,5 +1,5 @@
-import { ClientWrapper } from "@/core/index.js";
-import { GetTableOpts, TableBehaviour, UpdateTableOpts } from "@/types/index.js";
+import { ClientWrapper } from "../../../core/index.js";
+import { GetTableOpts, TableBehaviour, UpdateTableOpts } from "../../../types/index.js";
 import { SupabaseClient } from "@supabase/supabase-js";
 
 /**
