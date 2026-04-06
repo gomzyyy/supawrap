@@ -6,7 +6,7 @@ import {
   UploadOptions,
   TransformOptions,
   SearchOptions
-} from "@/types/index.js";
+} from "../../../types/index.js";
 
 export class BaseBucketWrapper extends BucketUtilityMethods {
   constructor(
@@ -94,7 +94,7 @@ export class BaseBucketWrapper extends BucketUtilityMethods {
     });
   }
 
-  async downloadOne(path: string,opts?:{transform?:TransformOptions}, cbs?: OnLoadingStateChangeCallback) {
+  async downloadOne(path: string, opts?: { transform?: TransformOptions }, cbs?: OnLoadingStateChangeCallback) {
     return this.withLoading(cbs, async () => {
       try {
         const { data, error } = await this.bucket().download(path, opts);

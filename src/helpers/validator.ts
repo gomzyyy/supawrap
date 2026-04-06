@@ -1,4 +1,4 @@
-import { ValidationError } from "@/core/index.js";
+import { ValidationError } from "../core/index.js";
 import type { JSDataType } from "../types/index.js";
 import { getDataType } from "./fn.js";
 
@@ -82,7 +82,7 @@ const validator = {
       obj: T,
       datatypes: JSDataType[],
     ): Partial<T> {
-      if(typeof obj !== "object" || obj === null) {
+      if (typeof obj !== "object" || obj === null) {
         throw new ValidationError("Invalid type of data received while checking for unwanted values.");
       }
       const result: Partial<T> = {};
