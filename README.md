@@ -44,18 +44,6 @@
 npm install supawrapper @supabase/supabase-js
 ```
 
-or
-
-```bash
-yarn add supawrapper @supabase/supabase-js
-```
-
-or
-
-```bash
-pnpm add supawrapper @supabase/supabase-js
-```
-
 ---
 
 ## 🚀 Quick Start
@@ -78,8 +66,6 @@ const supabase = createClient(
 
 # 📘 CRUD Wrapper
 
----
-
 ## Define Your Table Type
 
 ```ts
@@ -101,6 +87,44 @@ const users = new ClientWrapper<User>(
   supabase,
   "users"
 );
+```
+
+---
+
+## ⚙️ Client Configuration
+
+```ts
+const users = new ClientWrapper<User>(
+  supabase,
+  "users",
+  {
+    supportsSoftDeletion: true,
+    softDeleteConfig: {
+      flagKey: "is_deleted",
+      timestampKey: "deleted_at",
+    },
+    debug: {
+      returnHintsOnError: true,
+      hintsConfig: {
+        includeTableMetadata: true,
+        includeRawResults: true,
+        includeArguments: true,
+      },
+    },
+  }
+);
+```
+
+---
+
+## Supported Client Config
+
+```ts
+interface TableBehaviour {
+  supportsSoftDeletion?: boolean;
+  softDeleteConfig?: SoftDeleteConfig;
+  debug?: DebugConfig;
+}
 ```
 
 ---
@@ -153,9 +177,33 @@ const res = await users.get({
     },
   ],
   sortBy: "created_at",
-  order: "desc",
+  orderBy: "dec",
   limit: 10,
 });
+```
+
+---
+
+## Query Options
+
+```ts
+interface CRUDOptions<Table> {
+  eq?: { key: keyof Table; value: Table[keyof Table] }[];
+  sortBy?: keyof Table;
+  orderBy?: "asc" | "dec";
+  limit?: number;
+  single?: boolean;
+  maybeSingle?: boolean;
+  or?: string;
+  contains?: { key: keyof Table; value: Table[keyof Table] }[];
+  overlaps?: { key: keyof Table; value: Table[keyof Table][] }[];
+  ilike?: { key: keyof Table; value: string }[];
+  inValue?: { key: keyof Table; value: Table[keyof Table][] };
+  search?: string;
+  searchFields?: (keyof Table)[];
+  page?: number;
+  offset?: number;
+}
 ```
 
 ---
@@ -239,10 +287,6 @@ const count = await users.count({
 
 # ⚡ Realtime Listener
 
-Listen to table changes in real time.
-
----
-
 ## Create Listener
 
 ```ts
@@ -259,7 +303,7 @@ const userListener =
 
 ```ts
 userListener.onInsert((payload) => {
-  console.log("Inserted:", payload.new);
+  console.log(payload.new);
 });
 ```
 
@@ -269,7 +313,7 @@ userListener.onInsert((payload) => {
 
 ```ts
 userListener.onUpdate((payload) => {
-  console.log("Updated:", payload.new);
+  console.log(payload.new);
 });
 ```
 
@@ -279,7 +323,7 @@ userListener.onUpdate((payload) => {
 
 ```ts
 userListener.onDelete((payload) => {
-  console.log("Deleted:", payload.old);
+  console.log(payload.old);
 });
 ```
 
@@ -289,7 +333,7 @@ userListener.onDelete((payload) => {
 
 ```ts
 userListener.onChange((payload) => {
-  console.log("Changed:", payload);
+  console.log(payload);
 });
 ```
 
@@ -303,26 +347,32 @@ await userListener.unsubscribe();
 
 ---
 
-## Custom Channel ID
+## Realtime Channel Config
 
-Useful when creating multiple listeners for the same table.
+```ts
+interface RealtimeChannelConfig {
+  channelId?: string;
+}
+```
+
+---
+
+## Custom Channel ID
 
 ```ts
 const listener =
   new RealtimeListener<User>(
     supabase,
     "users",
-    "dashboard-live"
+    {
+      channelId: "dashboard-live"
+    }
   );
 ```
 
 ---
 
 # 📡 Broadcast Channel
-
-Use custom realtime channels for app-level events like chat, notifications, and collaboration.
-
----
 
 ## Create Channel
 
@@ -332,14 +382,6 @@ const chat =
     supabase,
     "chat-room"
   );
-```
-
----
-
-## Subscribe
-
-```ts
-chat.subscribe();
 ```
 
 ---
@@ -372,43 +414,12 @@ await chat.unsubscribe();
 
 ---
 
-# 🧠 Exported API
-
-```ts
-import {
-  ClientWrapper,
-  RealtimeListener,
-  BroadcastChannel,
-} from "supawrapper";
-```
-
----
-
-# 📦 Exported Types
-
-```ts
-import type {
-  CRUDOptions,
-  GetTableOpts,
-  UpdateTableOpts,
-  TableBehaviour,
-  Callbacks,
-} from "supawrapper";
-```
-
----
-
 # 🛣 Roadmap
-
-Upcoming features:
 
 - Storage wrapper
 - Auth wrapper
 - Presence channels
-- Server-side wrapper
-- Query chaining
-- CLI support
-- Schema helpers
+- Server-side wrapper & more
 
 ---
 

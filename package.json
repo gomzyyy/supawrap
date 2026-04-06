@@ -17,6 +17,25 @@
   },
   "author": "gomzyyy",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/gomzyyy/supawrapper.git"
+  },
+  "homepage": "https://github.com/gomzyyy/supawrapper#readme",
+  "bugs": {
+    "url": "https://github.com/gomzyyy/supawrapper/issues"
+  },
+  "keywords": [
+    "supabase",
+    "typescript",
+    "crud",
+    "realtime",
+    "wrapper",
+    "sdk",
+    "database",
+    "postgres",
+    "supawrapper"
+  ],
   "devDependencies": {
     "@types/node": "^25.5.2",
     "typescript": "^6.0.2"
