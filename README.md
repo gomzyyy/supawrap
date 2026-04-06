@@ -55,13 +55,30 @@ const data = await users.get({
 });
 ```
 
-------------------------------------------------------------------------
+---
 
 ## 🔒 Works With Your Existing Supabase Setup
 
-Supawrapper does NOT replace your Supabase client.
+Supawrapper **does NOT replace your Supabase client**.
 
-------------------------------------------------------------------------
+👉 You pass your own `supabase` instance:
+
+```ts
+const supabase = createClient(URL, KEY);
+const users = new ClientWrapper<User>(supabase, "users");
+```
+
+### Why this matters:
+
+- ✅ **No lock-in** — use Supabase directly anytime  
+- ✅ **Other flows remain untouched** (auth, rpc invocations, storage, etc.)  
+- ✅ **No interference with existing queries or logic**  
+- ✅ **Drop-in integration** into existing projects  
+- ✅ **Safe to adopt incrementally** (use only where needed)
+
+> Supawrapper only handles the **boilerplate layer**, not your core Supabase client.
+
+---
 
 ## ✨ Features
 
