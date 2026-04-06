@@ -1,6 +1,6 @@
 {
   "name": "supawrapper",
-  "version": "1.0.1",
+  "version": "1.0.5",
   "description": "A TypeScript package that wraps the Supabase client in a reusable class and exposes common methods for Create, Read, Update, and Delete operations.",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -17,13 +17,33 @@
   },
   "author": "gomzyyy",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/gomzyyy/supawrapper.git"
+  },
+  "homepage": "https://github.com/gomzyyy/supawrapper#readme",
+  "bugs": {
+    "url": "https://github.com/gomzyyy/supawrapper/issues"
+  },
+  "keywords": [
+    "supabase",
+    "typescript",
+    "crud",
+    "realtime",
+    "wrapper",
+    "sdk",
+    "database",
+    "postgres",
+    "supawrapper"
+  ],
   "devDependencies": {
     "@types/node": "^25.5.2",
     "typescript": "^6.0.2"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.101.1",
-    "tus-js-client": "^4.3.1"
+    "tus-js-client": "^4.3.1",
+    "zod": "^4.3.6"
   },
   "files": [
     "dist",
