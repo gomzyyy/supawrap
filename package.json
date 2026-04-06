@@ -1,11 +1,17 @@
 {
-  "name": "supabase-wrapper",
-  "version": "1.0.0",
+  "name": "supawrapper",
+  "version": "1.0.1",
   "description": "A TypeScript package that wraps the Supabase client in a reusable class and exposes common methods for Create, Read, Update, and Delete operations.",
-  "main": "index.js",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
   "type": "module",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
     "build": "tsc",
     "dev": "tsc --watch"
   },

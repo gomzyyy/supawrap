@@ -1,0 +1,9 @@
+export { ClientWrapper } from "./core/index.js";
+export {
+  type Callbacks,
+  type Flag,
+  type CRUDOptions,
+  type UpdateTableOpts,
+  type GetTableOpts,
+  type TableBehaviour,
+} from "./types/index.js";
