@@ -1,39 +1,25 @@
 # 🚀 Supawrapper
 
-```{=html}
 <p align="center">
-```
-`<strong>`{=html}⚡ MongoDB-like experience for
-Supabase`</strong>`{=html}
-```{=html}
+  <strong>⚡ MongoDB-like experience for Supabase</strong>
 </p>
-```
-```{=html}
-<p align="center">
-```
-A type-safe, developer-first data layer for Supabase.
-```{=html}
-</p>
-```
-```{=html}
-<p align="center">
-```
-Reduce boilerplate. Improve DX. Ship faster.
-```{=html}
-</p>
-```
-```{=html}
-<p align="center">
-```
-`<img alt="npm" src="https://img.shields.io/npm/v/supawrapper" />`{=html}
-`<img alt="license" src="https://img.shields.io/npm/l/supawrapper" />`{=html}
-`<img alt="typescript" src="https://img.shields.io/badge/TypeScript-Friendly-blue" />`{=html}
-`<img alt="supabase" src="https://img.shields.io/badge/Supabase-Compatible-green" />`{=html}
-```{=html}
-</p>
-```
 
-------------------------------------------------------------------------
+<p align="center">
+  A type-safe, developer-first data layer for Supabase.
+</p>
+
+<p align="center">
+  Reduce boilerplate. Improve DX. Ship faster.
+</p>
+
+<p align="center">
+  <img alt="npm" src="https://img.shields.io/npm/v/supawrapper" />
+  <img alt="license" src="https://img.shields.io/npm/l/supawrapper" />
+  <img alt="typescript" src="https://img.shields.io/badge/TypeScript-Friendly-blue" />
+  <img alt="supabase" src="https://img.shields.io/badge/Supabase-Compatible-green" />
+</p>
+
+---
 
 ## 😩 The Problem (Why this exists)
 
