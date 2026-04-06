@@ -11,7 +11,7 @@ export interface ValidatorCallback {
   validator?: () => boolean;
 }
 
-type AmendArgsCallback = <T,K>(
+type AmendArgsCallback = <T, K = any>(
   args: { formData: Partial<T> }
 ) => Partial<T> | (T & K);
 

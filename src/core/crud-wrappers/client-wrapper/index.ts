@@ -34,9 +34,9 @@ export class ClientWrapper<
   ) {
     super(supabase, tableName, behaviour);
   }
-/**
- * @classmethod exists() Checks if a record with the specified ID exists in the table. It uses the `withLoading` method to manage loading state and accepts callbacks for additional control over the operation. The method returns a boolean indicating the existence of the record, wrapped in a Response object for consistent API responses.
- */
+  /**
+   * @classmethod exists() Checks if a record with the specified ID exists in the table. It uses the `withLoading` method to manage loading state and accepts callbacks for additional control over the operation. The method returns a boolean indicating the existence of the record, wrapped in a Response object for consistent API responses.
+   */
   async exists(
     tableId: string,
     cbs?: Omit<Callbacks, ExistsFunctionOmitKeys>
@@ -63,9 +63,9 @@ export class ClientWrapper<
       }
     });
   }
-/**
- * @classmethod count() Counts the number of records in the table that match the specified criteria. It accepts optional filtering options and callbacks for managing loading state. The method constructs a query based on the provided options, executes it, and returns the count of matching records wrapped in a Response object. If an error occurs during the operation, it is handled gracefully and returned as an APIError response.
- */
+  /**
+   * @classmethod count() Counts the number of records in the table that match the specified criteria. It accepts optional filtering options and callbacks for managing loading state. The method constructs a query based on the provided options, executes it, and returns the count of matching records wrapped in a Response object. If an error occurs during the operation, it is handled gracefully and returned as an APIError response.
+   */
   async count(opts?: GetOptions, cbs?: Callbacks): Promise<Response<number>> {
     return this.withLoading(cbs, async () => {
       try {

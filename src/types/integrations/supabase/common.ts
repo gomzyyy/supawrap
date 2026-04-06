@@ -6,8 +6,8 @@ export interface CommonSchema {
 
 export interface CRUDOptions<Table> {
   eq?: { key: keyof Table; value: Table[keyof Table] }[];
-  sort?: keyof Table;
-  sortBy?: "asc" | "dec";
+  sortBy?: keyof Table;
+  orderBy?: "asc" | "dec";
   limit?: number;
   single?: boolean;
   maybeSingle?: boolean;
@@ -17,7 +17,7 @@ export interface CRUDOptions<Table> {
   ilike?: { key: keyof Table; value: string }[];
   inValue?: { key: keyof Table; value: Table[keyof Table][] };
   search?: string;
-  searchFields?: keyof Table[];
+  searchFields?: (keyof Table)[];
   page?: number;
   offset?: number;
 }
@@ -26,7 +26,7 @@ type OmittedUpdateTableOpts =
   | "limit"
   | "single"
   | "maybeSingle"
-  | "sort"
+  | "orderBy"
   | "sortBy"
   | "search"
   | "searchFields"
@@ -37,7 +37,7 @@ export interface UpdateTableOpts<Table>
   extends Omit<
     CRUDOptions<Table>,
     OmittedUpdateTableOpts
-  > {}
+  > { }
 
 export interface GetTableOpts<Table>
-  extends CRUDOptions<Table> {}
+  extends CRUDOptions<Table> { }

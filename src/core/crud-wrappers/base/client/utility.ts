@@ -86,7 +86,7 @@ export class UtilityMethods<
       : deleteUnwantedValues<Partial<TableFormData>>(payload, ["undefined", "emptystrings"]);
 
     return (
-      cbs?.amendArgs?.({
+      cbs?.amendArgs?.<TableFormData>({
         formData: newPayload,
       }) ?? newPayload
     );

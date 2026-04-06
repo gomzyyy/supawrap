@@ -40,7 +40,7 @@ export class BaseClientCRUDWrapper<
    * @method createOne() Creates a new record in the specified table with the provided data. It accepts optional callbacks for managing loading state and allows for falsy values in the payload if specified in the options. The method prepares the payload, executes the insert operation, and returns the created record wrapped in a Response object. If an error occurs during the operation, it is handled gracefully and returned as an APIError response.
    */
   async createOne(
-    data: Partial<TableFormData> | TableFormData,
+    data: TableFormData,
     cbs?: Callbacks,
     opts = { allowFalsy: false }
   ): Promise<Response<Table>> {
@@ -107,9 +107,9 @@ export class BaseClientCRUDWrapper<
     });
   }
   /**
-   * @method updateOneById() Updates a single record identified by its ID with the provided update data. It accepts optional callbacks for managing loading state and allows for falsy values in the update payload if specified in the options. The method prepares the payload, executes the update operation, and returns the updated record wrapped in a Response object. If an error occurs during the operation, it is handled gracefully and returned as an APIError response.
+   * @method updateById() Updates a single record identified by its ID with the provided update data. It accepts optional callbacks for managing loading state and allows for falsy values in the update payload if specified in the options. The method prepares the payload, executes the update operation, and returns the updated record wrapped in a Response object. If an error occurs during the operation, it is handled gracefully and returned as an APIError response.
    */
-  async updateOneById(
+  async updateById(
     tableId: string,
     update: Partial<TableFormData>,
     cbs?: Callbacks,
@@ -136,7 +136,7 @@ export class BaseClientCRUDWrapper<
           const hints = this.getDebugLogs({
             rawPayload: update,
             injectedPayload: newPayload,
-            operation: "updateOneById",
+            operation: "updateById",
             rawOutput: {
               data,
               error,
@@ -188,7 +188,7 @@ export class BaseClientCRUDWrapper<
 
   async batchUpdate(
     update: Partial<TableFormData>,
-    conditions: UpdateOptions,
+    filters: UpdateOptions,
     cbs?: Callbacks
   ): Promise<Response<Table[]>> {
     return this.withLoading(cbs, async () => {
@@ -204,7 +204,7 @@ export class BaseClientCRUDWrapper<
           .update(newPayload)
           .select("*");
 
-        query = this.applyFilters(query, conditions);
+        query = this.applyFilters(query, filters);
 
         const { data, error } = await query;
 
@@ -240,8 +240,8 @@ export class BaseClientCRUDWrapper<
           limit,
           single,
           maybeSingle,
+          orderBy,
           sortBy,
-          sort,
           search,
           searchFields,
           page = 1,
@@ -272,6 +272,10 @@ export class BaseClientCRUDWrapper<
           query = query.range(from, to);
         }
 
+        if (limit && !single && !maybeSingle) {
+          query = query.limit(limit);
+        }
+
         if (single && !maybeSingle) {
           query = query.single();
         }
@@ -280,9 +284,14 @@ export class BaseClientCRUDWrapper<
           query = query.maybeSingle();
         }
 
-        if (sort) {
-          query = query.order(sort, {
-            ascending: sortBy === "asc",
+        if (sortBy) {
+          const orderStrToBool: Record<"asc" | "dec", boolean> = {
+            asc: true,
+            dec: false,
+          };
+          const ascending = orderStrToBool[orderBy as "asc" | "dec"] || true;
+          query = query.order(sortBy, {
+            ascending,
           });
         }
 
@@ -333,9 +342,9 @@ export class BaseClientCRUDWrapper<
     });
   }
   /**
-   * @method deleteOneByIDPermanent() Permanently deletes a single record identified by its ID from the specified table. It accepts optional callbacks for managing loading state. The method executes a delete operation and returns a success response if the deletion  is successful. If an error occurs during the operation, it is handled gracefully and returned as an APIError response.
+   * @method deleteOneById() Permanently deletes a single record identified by its ID from the specified table. It accepts optional callbacks for managing loading state. The method executes a delete operation and returns a success response if the deletion  is successful. If an error occurs during the operation, it is handled gracefully and returned as an APIError response.
    */
-  async deleteOneByIDPermanent(
+  async deleteOneById(
     tableId: string,
     cbs?: Callbacks
   ): Promise<Response<null>> {
@@ -349,7 +358,7 @@ export class BaseClientCRUDWrapper<
         if (error) {
           const hints = this.getDebugLogs({
             tableId,
-            operation: "deleteOneByIDPermanent",
+            operation: "deleteOneById",
             rawOutput: {
               error,
             },
@@ -364,9 +373,9 @@ export class BaseClientCRUDWrapper<
     });
   }
   /**
-   * @method toggleSoftDeleteOneById() Toggles the soft deletion state of a single record identified by its ID. It accepts an intent boolean to indicate whether to soft delete (true) or restore (false) the record, along with optional callbacks for managing loading state. The method checks if soft deletion is supported, prepares the update payload based on the configured soft delete keys, executes the update operation, and returns the updated record wrapped in a Response object. If an error occurs during the operation, it is handled gracefully and returned as an APIError response.
+   * @method setSoftDeletedById() Toggles the soft deletion state of a single record identified by its ID. It accepts an intent boolean to indicate whether to soft delete (true) or restore (false) the record, along with optional callbacks for managing loading state. The method checks if soft deletion is supported, prepares the update payload based on the configured soft delete keys, executes the update operation, and returns the updated record wrapped in a Response object. If an error occurs during the operation, it is handled gracefully and returned as an APIError response.
    */
-  async toggleSoftDeleteOneById(
+  async setSoftDeletedById(
     tableId: string,
     intent: boolean,
     cbs?: Callbacks
@@ -376,8 +385,8 @@ export class BaseClientCRUDWrapper<
         if (!this.behaviour.supportsSoftDeletion) {
           throw new ValidationError(
             `Table '${this.tableName}' doesn't support soft deletion.` +
-              "\n\n" +
-              "You can configure this by passing the appropriate behaviour object to the respective instance."
+            "\n\n" +
+            "You can configure this by passing the appropriate behaviour object to the respective instance."
           );
         }
 
@@ -407,7 +416,7 @@ export class BaseClientCRUDWrapper<
             tableId,
             shouldDelete: intent,
             configuredSoftDeleteKeys: this.behaviour.softDeleteConfig,
-            operation: "toggleSoftDeleteOneById",
+            operation: "setSoftDeletedById",
             rawOutput: {
               data,
               error,
