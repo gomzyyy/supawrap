@@ -14,7 +14,7 @@ export interface StorageAdapter {
 }
 
 export interface CacheConfig {
-    enable?: boolean;
+    enabled?: boolean;
     ttl?: number;
     maxEntries?: number;
     storage?: StorageAdapter;

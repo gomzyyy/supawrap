@@ -11,18 +11,20 @@ function hasUnref(timer: unknown): timer is { unref: () => void } {
     );
 }
 
-export class CacheClient<T = unknown> {
+export class CacheClient {
     private readonly ttl: number;
     private readonly maxEntries: number;
     private readonly storage: StorageAdapter;
     private cleanupTimer?: ReturnType<typeof setInterval>;
+    private readonly enabled: boolean;
 
     constructor(config: CacheConfig = {}) {
+        this.enabled = !!config.enabled;
         this.ttl = config.ttl ?? 60_000;
         this.maxEntries = config.maxEntries ?? 500;
         this.storage = getStorage(config.storage);
 
-        if (config.autoCleanup !== false) {
+        if (this.enabled && config.autoCleanup !== false) {
             const interval = config.cleanupInterval ?? 30_000;
 
             this.cleanupTimer = setInterval(() => {
@@ -35,7 +37,7 @@ export class CacheClient<T = unknown> {
         }
     }
 
-    set(key: string, value: T, customTTL?: number): CacheRecord<T> {
+    set<T = unknown>(key: string, value: T, customTTL?: number): CacheRecord<T> {
         const now = new Date();
         const ttl = customTTL ?? this.ttl;
 
@@ -46,6 +48,8 @@ export class CacheClient<T = unknown> {
             expires_at: new Date(now.getTime() + ttl).toISOString(),
         };
 
+        if (!this.enabled) return record;
+
         this.storage.setItem(key, JSON.stringify(record));
 
         this.enforceLRU();
@@ -53,7 +57,9 @@ export class CacheClient<T = unknown> {
         return record;
     }
 
-    get(key: string): CacheRecord<T> | null {
+    get<T = unknown>(key: string): CacheRecord<T> | null {
+        if (!this.enabled) return null;
+
         const raw = this.storage.getItem(key);
 
         const record = parseCacheRecord<T>(raw);
@@ -76,7 +82,19 @@ export class CacheClient<T = unknown> {
     }
 
     delete(key: string): void {
+        if (!this.enabled) return;
         this.storage.removeItem(key);
+    }
+
+    deleteByPrefix(prefix: string): void {
+        if (!this.enabled) return;
+
+        const keys = this.storage.keys?.() ?? [];
+        for (const key of keys) {
+            if (key.startsWith(prefix)) {
+                this.storage.removeItem(key);
+            }
+        }
     }
 
     clear(): void {
@@ -101,12 +119,12 @@ export class CacheClient<T = unknown> {
         return remaining > 0 ? remaining : null;
     }
 
-    touch(key: string, customTTL?: number): boolean {
-        const record = this.get(key);
+    touch<T = unknown>(key: string, customTTL?: number): boolean {
+        const record = this.get<T>(key);
 
         if (!record) return false;
 
-        this.set(key, record.data, customTTL);
+        this.set<T>(key, record.data, customTTL);
 
         return true;
     }
@@ -120,11 +138,13 @@ export class CacheClient<T = unknown> {
         return this.keys().length;
     }
 
-    private isExpired(record: CacheRecord<T>): boolean {
+    private isExpired<T = unknown>(record: CacheRecord<T>): boolean {
         return Date.now() >= new Date(record.expires_at).getTime();
     }
 
-    private cleanupExpired(): void {
+    private cleanupExpired<T = unknown>(): void {
+        if (!this.enabled) return;
+
         const keys = this.storage.keys?.() ?? [];
 
         for (const key of keys) {

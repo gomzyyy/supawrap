@@ -10,6 +10,24 @@
 
 ---
 
+# ✨ What's New in v1.0.8
+
+This patch introduces a fully automated, production-grade caching layer directly into Supawrapper!
+
+- production-grade read-through caching
+- automatic write invalidation
+- cache support for `getById()`
+- cache support for `get()`
+- pagination-safe query caching
+- automatic cache expiry support
+- configurable TTL
+- configurable max entries
+- optional custom storage adapter support
+- automatic `localStorage` fallback
+- `MemoryStorage` fallback when `localStorage` is unavailable
+
+---
+
 ## 😩 The Problem (Why this exists)
 
 If you've used Supabase, you already know:
@@ -36,26 +54,22 @@ const { data, error } = await supabase
 
 Supawrapper collapses query handling and database logic into a **seamless abstraction layer**. We automate the annoying parts: typed API wrappers, automatic validation with standard tools (Zod), injected timestamps, and fluent APIs, so you can write:
 
+**WITHOUT SUPAWRAPPER:**
+```ts
+const { data, error } = await supabase
+  .from("users")
+  .select("*")
+  .eq("id", "123")
+  .maybeSingle();
+
+// + manual validation, timestamps, and error handling boilerplate
+```
+
+**WITH SUPAWRAPPER:**
 ```ts
 const users = new ClientWrapper<User>(supabase, "users");
 
-// Fluent chained API
-
-const chainable = users.chainable;
-
-const data = await chainable
-  .where("is_active", true)
-  .orderBy("created_at", "desc")
-  .limit(10)
-  .get();
-
-// OR Structured access
-const res = await users.get({
-  eq: [{ key: "is_active", value: true }],
-  sortBy: "created_at",
-  orderBy: "dec",
-  limit: 10,
-});
+await users.getById("123");
 ```
 
 ---
@@ -81,6 +95,15 @@ const users = new ClientWrapper<User>(supabase, "users");
 ## ✨ Features
 
 - Fully typed CRUD wrapper
+- Smart built-in caching layer
+- Automatic query cache invalidation
+- Read-through caching
+- Pagination-safe caching
+- Custom storage support
+- Automatic fallback storage
+- TTL based expiration
+- LRU style cleanup support
+- zero-config fallback memory cache
 - Schema validation with Zod
 - Auto-handled timestamps
 - Presets (smart reusable queries)
@@ -140,18 +163,6 @@ const users = new ClientWrapper<User>(supabase, "users");
 
 ```
 
-## 🎉 What's New in v1.0.7
-
-- **Upsert support**: Added `upsertOne` and `upsertMany` APIs for seamless "insert or update" operations, resolving conflicts automatically based on your uniquely identified keys!
-
----
-
-- **Table identifiers**: Introduced `uniqueIdentifiers?: string[]` to your `TableBehaviour` configuration to power deterministic conflict resolutions directly at the data layer.
-
----
-
----
-
 ## ⚙️ Client Configuration
 
 ```ts
@@ -167,6 +178,11 @@ const users = new ClientWrapper<User>(
       },
     },
     uniqueIdentifiers: ["id"],
+    cachingStrategy: {
+      enabled: true,
+      ttl: 60000,
+      maxEntries: 100,
+    },
     validator: {
       enabled: true,
       schema: userSchema,
@@ -202,6 +218,14 @@ interface TableBehaviour<Schema = unknown> {
     };
   };
   uniqueIdentifiers?: string[];
+  cachingStrategy?: {
+    enabled?: boolean;
+    ttl?: number;
+    maxEntries?: number;
+    storage?: any;
+    cleanupInterval?: number;
+    autoCleanup?: boolean;
+  };
   validator?: {
     enabled?: boolean;
     schema?: ZodSchema<Schema>;
@@ -221,6 +245,105 @@ interface TableBehaviour<Schema = unknown> {
   };
 }
 ```
+
+---
+
+## 🏗️ Default Configuration
+
+If you do not specify particular behaviours during wrapper initialization, Supawrapper natively applies these sensible defaults automatically:
+
+```ts
+const defaultBehaviour = {
+  timestamps: {
+    autoTimestamps: true,
+    config: {
+      createdAtKey: "created_at",
+      updatedAtKey: "updated_at",
+    },
+  },
+  uniqueIdentifiers: ["id"],
+  validator: {
+    enabled: false,
+  },
+  supportsSoftDeletion: false,
+  softDeleteConfig: {
+    timestampKey: "deleted_at",
+    flagKey: "is_deleted",
+  },
+  debug: {
+    returnHintsOnError: true,
+    hintsConfig: {
+      includeTableMetadata: true,
+      includeRawResults: true,
+      includeArguments: true,
+    },
+  },
+  cachingStrategy: {
+    enabled: false,
+    ttl: 60_000,
+    maxEntries: 500,
+    cleanupInterval: 60_000,
+    autoCleanup: true,
+  }
+}
+```
+
+---
+
+## 🧠 Caching Layer Configuration
+
+Caching is configured inside `TableBehaviour`.
+
+```ts
+cachingStrategy?: CacheConfig
+```
+
+### `CacheConfig` Interface
+
+```ts
+interface CacheConfig {
+  enabled?: boolean
+  ttl?: number
+  maxEntries?: number
+  storage?: StorageAdapter
+  cleanupInterval?: number
+  autoCleanup?: boolean
+}
+```
+
+### Configuration Options
+
+- **`enable`**: Enables or disables cache layer globally for this wrapper instance.
+- **`ttl`**: Time to live in milliseconds for each cache record.
+- **`maxEntries`**: Maximum number of cache entries allowed before cleanup / LRU enforcement.
+- **`storage`**: Custom storage adapter. 
+  Can be:
+  - `localStorage`
+  - `sessionStorage`
+  - `MMKV`
+  - custom wrapper
+  - React Native storage layers
+- **`cleanupInterval`**: Interval for periodic cleanup of expired records.
+- **`autoCleanup`**: Enables background automatic cleanup.
+
+### Default Storage Fallback
+
+```ts
+function getStorage(storage?: StorageAdapter): StorageAdapter {
+  if (storage) return storage;
+  else if (
+    typeof window !== "undefined" &&
+    "localStorage" in window
+  ) return window.localStorage;
+  else return new MemoryStorage();
+}
+```
+
+- if user provides custom storage → use that
+- otherwise use browser `localStorage`
+- otherwise fallback to in-memory `MemoryStorage`
+- `MemoryStorage` internally uses `Map()`
+- ideal for Node.js / SSR / non-browser environments
 
 ---
 
@@ -472,7 +595,7 @@ class Presets<T> {
 The `.chain()` API gives you a fluent builder pattern to execute fully typed queries without crafting complex configuration objects.
 
 ```ts
-const results = await users.chain()
+const results = await users.chainable
   .where("is_active", true)
   .orderBy("created_at", "desc")
   .limit(10)
@@ -583,7 +706,7 @@ await posts.createOne({
 });
 
 // Chain query
-const recent = await posts.chain()
+const recent = await posts.chainable
   .where("is_published", true)
   .orderBy("created_at", "desc")
   .limit(5)
@@ -643,7 +766,20 @@ await chat.unsubscribe();
 
 # 🤝 Contributing
 
-Contributions, issues, and feature requests are welcome. Feel free to open a PR or issue.
+Contributions, issues, and feature requests are welcome!
+
+1. **fork repository**
+2. **create new branch** using descriptive branch names:
+   ```bash
+   git checkout -b feat/caching-improvements
+   ```
+3. **commit changes properly**
+4. **push branch**:
+   ```bash
+   git push origin feat/caching-improvements
+   ```
+5. **raise pull request**
+6. Please **add issue before large changes** to thoughtfully discuss roadmap improvements first!
 
 ---
 
@@ -651,4 +787,4 @@ Contributions, issues, and feature requests are welcome. Feel free to open a PR 
 
 MIT License
 
-# Built with ❤️ by gomzyyy
+<p align="center">Made with ❤️ by Gomzyyy</p>
