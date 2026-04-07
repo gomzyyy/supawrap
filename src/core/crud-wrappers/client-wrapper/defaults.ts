@@ -26,5 +26,12 @@ export function getDefaultTableBehaviour<T>(): TableBehaviour<T> {
                 includeArguments: true,
             },
         },
+        cachingStrategy: {
+            enabled: false,
+            ttl: 60000,
+            maxEntries: 500,
+            cleanupInterval: 60000,
+            autoCleanup: true,
+        }
     }
 }

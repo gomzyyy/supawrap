@@ -3,12 +3,12 @@ import {
   type Callbacks,
   type Response,
   TableBehaviour,
-  OnLoadingStateChangeCallback,
 } from "../../../../types/index.js";
 import { APIResponse } from "../../../response/index.js";
 import { type SupabaseClient } from "@supabase/supabase-js";
 import { APIError, ValidationError } from "../../../index.js";
 import { UtilityMethods } from "./utility.js";
+import { CacheClient } from "@/core/store/index.js";
 
 /**
  * @undertesting - Please note that BaseClientCRUDWrapper is currently under testing and may undergo significant changes. The current implementation serves as a foundational structure for CRUD operations, but we are actively working on refining the API, enhancing error handling, and optimizing performance. We recommend using this class for testing and prototyping purposes, but be prepared for potential breaking changes in future releases as we continue to improve and expand its capabilities.
@@ -21,12 +21,14 @@ export class BaseClientCRUDWrapper<
   GetOptions,
   UpdateOptions
 > extends UtilityMethods<Table, GetOptions, UpdateOptions> {
+  private readonly cache: CacheClient
   constructor(
     supabase: SupabaseClient,
     tableName: string,
     behaviour: TableBehaviour<Table>
   ) {
     super(supabase, tableName, behaviour);
+    this.cache = new CacheClient(this.behaviour.cachingStrategy)
   }
 
   /**
@@ -124,6 +126,8 @@ export class BaseClientCRUDWrapper<
           throw new APIError(error.message, hints, error);
         }
 
+        this.invalidateTableQueryCaches();
+
         return new APIResponse(apiData || null, Flag.Success).build();
       } catch (error) {
         return this.handleError(error);
@@ -170,6 +174,8 @@ export class BaseClientCRUDWrapper<
           });
           throw new APIError(error.message, hints, error);
         }
+
+        this.invalidateTableQueryCaches();
 
         return new APIResponse(data, Flag.Success).build();
       } catch (error) {
@@ -219,6 +225,11 @@ export class BaseClientCRUDWrapper<
           });
           throw new APIError(error.message, hints, error);
         }
+
+        if (apiData && typeof apiData === 'object' && "id" in apiData) {
+          this.cache.delete(this.createIdCacheKey(String((apiData as any).id)));
+        }
+        this.invalidateTableQueryCaches();
 
         return new APIResponse(apiData || null, Flag.Success).build();
       } catch (error) {
@@ -271,6 +282,8 @@ export class BaseClientCRUDWrapper<
           });
           throw new APIError(error.message, hints, error);
         }
+
+        this.invalidateTableQueryCaches();
 
         return new APIResponse(apiData || [], Flag.Success).build();
       } catch (error) {
@@ -332,6 +345,9 @@ export class BaseClientCRUDWrapper<
           throw new APIError(error.message, hints, error);
         }
 
+        this.cache.delete(this.createIdCacheKey(tableId));
+        this.invalidateTableQueryCaches();
+
         return new APIResponse(data || null, Flag.Success).build();
       } catch (error) {
         return this.handleError(error);
@@ -347,6 +363,13 @@ export class BaseClientCRUDWrapper<
   async getById(tableId: string, cbs?: Callbacks): Promise<Response<Table>> {
     return this.withLoading(cbs, async () => {
       try {
+        const cacheKey = this.createIdCacheKey(tableId);
+        const cached = this.cache.get<Table>(cacheKey);
+
+        if (cached) {
+          return new APIResponse(cached.data, Flag.Success).build();
+        }
+
         const { data, error } = await this.supabase
           .from(this.tableName)
           .select("*")
@@ -364,6 +387,8 @@ export class BaseClientCRUDWrapper<
           });
           throw new APIError(error.message, hints, error);
         }
+
+        this.cache.set<Table | null>(cacheKey, data || null);
 
         return new APIResponse(data || null, Flag.Success).build();
       } catch (error) {
@@ -421,6 +446,8 @@ export class BaseClientCRUDWrapper<
           throw new APIError(error.message, hints, error);
         }
 
+        this.invalidateTableQueryCaches();
+
         return new APIResponse(data, Flag.Success).build();
       } catch (error) {
         return this.handleError(error);
@@ -439,6 +466,24 @@ export class BaseClientCRUDWrapper<
   ): Promise<Response<Table | Table[]>> {
     return this.withLoading(cbs, async () => {
       try {
+        const cacheKey = this.createQueryCacheKey(getOptions);
+
+        type QueryPayload = {
+          data: Table | Table[] | null;
+          pagination: {
+            page: number;
+            limit: number;
+            total: number | null;
+            totalPages: number;
+          };
+        };
+
+        const cached = this.cache.get<QueryPayload>(cacheKey);
+
+        if (cached) {
+          return new APIResponse(cached.data, Flag.Success).build();
+        }
+
         const {
           limit,
           single,
@@ -527,18 +572,22 @@ export class BaseClientCRUDWrapper<
           throw new APIError(error.message, hints, error);
         }
 
-        return new APIResponse(
-          {
-            data,
-            pagination: {
-              page,
-              limit,
-              total: count,
-              totalPages: Math.ceil((count || 0) / limit),
-            },
+        const payloadToCache: QueryPayload = {
+          data,
+          pagination: {
+            page,
+            limit,
+            total: count,
+            totalPages:
+              typeof limit === "number" && limit > 0
+                ? Math.ceil((count || 0) / limit)
+                : 1,
           },
-          Flag.Success
-        ).build();
+        };
+
+        this.cache.set<QueryPayload>(cacheKey, payloadToCache);
+
+        return new APIResponse(payloadToCache, Flag.Success).build();
       } catch (error) {
         return this.handleError(error);
       }
@@ -571,6 +620,9 @@ export class BaseClientCRUDWrapper<
           });
           throw new APIError(error.message, hints, error);
         }
+
+        this.cache.delete(this.createIdCacheKey(tableId));
+        this.invalidateTableQueryCaches();
 
         return new APIResponse(null, Flag.Success).build();
       } catch (error) {
@@ -635,10 +687,49 @@ export class BaseClientCRUDWrapper<
           throw new APIError(error.message, hints, error);
         }
 
+        this.cache.delete(this.createIdCacheKey(tableId));
+        this.invalidateTableQueryCaches();
+
         return new APIResponse(data || null, Flag.Success).build();
       } catch (error) {
         return this.handleError(error);
       }
     });
+  }
+
+  // Caching Helpers
+  private createIdCacheKey(id: string): string {
+    return `${this.tableName}:id:${id}`;
+  }
+
+  private stableStringify(input: unknown): string {
+    const normalize = (value: unknown): unknown => {
+      if (Array.isArray(value)) {
+        return value.map(normalize);
+      }
+
+      if (value && typeof value === "object") {
+        return Object.keys(value as object)
+          .sort()
+          .reduce((acc, key) => {
+            acc[key] = normalize(
+              (value as Record<string, unknown>)[key]
+            );
+            return acc;
+          }, {} as Record<string, unknown>);
+      }
+
+      return value;
+    };
+
+    return JSON.stringify(normalize(input));
+  }
+
+  private createQueryCacheKey(options: unknown): string {
+    return `${this.tableName}:query:${this.stableStringify(options)}`;
+  }
+
+  private invalidateTableQueryCaches(): void {
+    this.cache.deleteByPrefix(`${this.tableName}:query:`);
   }
 }
