@@ -10,21 +10,29 @@
 
 ---
 
-# ✨ What's New in v1.0.8
+# 🚀 v1.0.9 — Most Stable Release Yet
 
-This patch introduces a fully automated, production-grade caching layer directly into Supawrapper!
+> This is the most stable version of Supawrapper to date.
 
-- production-grade read-through caching
-- automatic write invalidation
-- cache support for `getById()`
-- cache support for `get()`
-- pagination-safe query caching
-- automatic cache expiry support
-- configurable TTL
-- configurable max entries
-- optional custom storage adapter support
-- automatic `localStorage` fallback
-- `MemoryStorage` fallback when `localStorage` is unavailable
+### 🐛 Bug Fixes
+
+- **Fixed strict Supabase client typing** — `TClient` is now fully generic and compatible with every version of `@supabase/supabase-js`. No more version-lock type errors.
+- **Fixed import alias resolution** — resolved `@/` path alias issues that caused module import failures in certain project setups.
+- **Fixed package metadata conflicts** — corrected `package.json` dependency declarations that caused peer dependency resolution conflicts on install.
+
+### ✨ Previously in v1.0.8
+
+- Production-grade read-through caching layer
+- Automatic write invalidation on all mutations
+- Cache support for `getById()` and `get()`
+- Pagination-safe query caching
+- Configurable TTL, max entries, and storage adapter
+- Automatic `localStorage` / `MemoryStorage` fallback
+
+---
+
+> [!NOTE]
+> Supawrapper is a newly launched open-source package built on top of the Supabase client. If you encounter any issues, unexpected behaviour, or want to suggest improvements, **please open an issue on the [GitHub repository](https://github.com/gomzyyy/supawrapper)**. Your feedback directly shapes the roadmap.
 
 ---
 
@@ -67,7 +75,7 @@ const { data, error } = await supabase
 
 **WITH SUPAWRAPPER:**
 ```ts
-const users = new ClientWrapper<User>(supabase, "users");
+const users = new ClientWrapper<User, typeof supabase>(supabase, "users");
 
 await users.getById("123");
 ```
@@ -80,7 +88,7 @@ Supawrapper **does NOT replace your Supabase client**.
 
 ```ts
 const supabase = createClient(URL, KEY);
-const users = new ClientWrapper<User>(supabase, "users");
+const users = new ClientWrapper<User, typeof supabase>(supabase, "users");
 ```
 
 - ✅ **No lock-in** — use Supabase directly anytime
@@ -95,15 +103,7 @@ const users = new ClientWrapper<User>(supabase, "users");
 ## ✨ Features
 
 - Fully typed CRUD wrapper
-- Smart built-in caching layer
-- Automatic query cache invalidation
-- Read-through caching
-- Pagination-safe caching
-- Custom storage support
-- Automatic fallback storage
-- TTL based expiration
-- LRU style cleanup support
-- zero-config fallback memory cache
+- Built-in caching layer with read-through support, auto-invalidation, configurable TTL, and zero-config fallback storage (`localStorage` → `MemoryStorage`)
 - Schema validation with Zod
 - Auto-handled timestamps
 - Presets (smart reusable queries)
@@ -129,7 +129,7 @@ npm install supawrapper @supabase/supabase-js zod
 
 ```ts
 import { createClient } from "@supabase/supabase-js";
-import { ClientWrapper, RealtimeListener, BroadcastChannel, defineTable } from "supawrapper";
+import { ClientWrapper, RealtimeListener, BroadcastChannel } from "supawrapper";
 
 const supabase = createClient(
   process.env.SUPABASE_URL!,
@@ -159,14 +159,13 @@ interface User {
 ## Create Wrapper
 
 ```ts
-const users = new ClientWrapper<User>(supabase, "users");
-
+const users = new ClientWrapper<User, typeof supabase>(supabase, "users");
 ```
 
 ## ⚙️ Client Configuration
 
 ```ts
-const users = new ClientWrapper<User>(
+const users = new ClientWrapper<User, typeof supabase>(
   supabase,
   "users",
   {
@@ -520,7 +519,7 @@ const userSchema = z.object({
   is_active: z.boolean().default(true),
 });
 
-const users = defineTable<User, Partial<User>, GetTableOpts<User>, UpdateTableOpts<User>>(
+const users = new ClientWrapper<User, typeof supabase>(
   supabase,
   "users",
   {
@@ -541,7 +540,7 @@ Invalid data throws a meaningful error before it ever reaches Supabase.
 Enable `autoTimestamps` to have `created_at` and `updated_at` managed for you. Key names are configurable.
 
 ```ts
-const users = defineTable<User, Partial<User>, GetTableOpts<User>, UpdateTableOpts<User>>(
+const users = new ClientWrapper<User, typeof supabase>(
   supabase,
   "users",
   {
@@ -669,8 +668,13 @@ Raw queries still go through Supawrapper's response and debug layer.
 
 ```ts
 import { z } from "zod";
-import { defineTable } from "supawrapper";
-import { GetTableOpts, UpdateTableOpts } from "supawrapper/types";
+import { ClientWrapper } from "supawrapper";
+import { createClient } from "@supabase/supabase-js";
+
+const supabase = createClient(
+  process.env.SUPABASE_URL!,
+  process.env.SUPABASE_ANON_KEY!
+);
 
 const postSchema = z.object({
   id: z.string().uuid().optional(),
@@ -688,7 +692,7 @@ interface Post {
   updated_at?: string;
 }
 
-const posts = defineTable<Post, Partial<Post>, GetTableOpts<Post>, UpdateTableOpts<Post>>(
+const posts = new ClientWrapper<Post, typeof supabase>(
   supabase,
   "posts",
   {
@@ -787,4 +791,4 @@ Contributions, issues, and feature requests are welcome!
 
 MIT License
 
-<p align="center">Made with ❤️ by Gomzyyy</p>
+<p align="center">Made with ❤️ by gomzyyy</p>
