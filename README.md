@@ -10,21 +10,16 @@
 
 ---
 
-# ✨ What's New in v1.0.8
+# ✨ What's New in v1.0.10
 
-This patch introduces a fully automated, production-grade caching layer directly into Supawrapper!
+- **Exported Storage Adapters**: Easily import and configure persistence engines by securely exposing storage options directly from `supawrapper/storage` (e.g., `MemoryStorage`, `createPersistentStorage`).
+- **Improved Strict TypeScript Generics**: Heavily upgraded the `ClientWrapper` type constraints bringing stricter and safer schema inferences.
+- **Preset Configuration Overrides**: Natively added configurations for smart `presets` directly within `TableBehaviour`, allowing customized mapping for internal keys like `isActiveKey` and `userIdKey`.
 
-- production-grade read-through caching
-- automatic write invalidation
-- cache support for `getById()`
-- cache support for `get()`
-- pagination-safe query caching
-- automatic cache expiry support
-- configurable TTL
-- configurable max entries
-- optional custom storage adapter support
-- automatic `localStorage` fallback
-- `MemoryStorage` fallback when `localStorage` is unavailable
+---
+
+> [!NOTE]
+> Supawrapper is a newly launched open-source package built on top of the Supabase client. If you encounter any issues, unexpected behaviour, or want to suggest improvements, **please open an issue on the [GitHub repository](https://github.com/gomzyyy/supawrapper/issues)**. Your feedback directly shapes the roadmap.
 
 ---
 
@@ -67,7 +62,7 @@ const { data, error } = await supabase
 
 **WITH SUPAWRAPPER:**
 ```ts
-const users = new ClientWrapper<User>(supabase, "users");
+const users = new ClientWrapper<User, typeof supabase>(supabase, "users");
 
 await users.getById("123");
 ```
@@ -80,7 +75,7 @@ Supawrapper **does NOT replace your Supabase client**.
 
 ```ts
 const supabase = createClient(URL, KEY);
-const users = new ClientWrapper<User>(supabase, "users");
+const users = new ClientWrapper<User, typeof supabase>(supabase, "users");
 ```
 
 - ✅ **No lock-in** — use Supabase directly anytime
@@ -95,15 +90,8 @@ const users = new ClientWrapper<User>(supabase, "users");
 ## ✨ Features
 
 - Fully typed CRUD wrapper
-- Smart built-in caching layer
-- Automatic query cache invalidation
-- Read-through caching
-- Pagination-safe caching
-- Custom storage support
-- Automatic fallback storage
-- TTL based expiration
-- LRU style cleanup support
-- zero-config fallback memory cache
+- Built-in caching layer with read-through support, auto-invalidation, configurable TTL, and zero-config fallback storage (Uses Heap under the hood for speed; `MemoryStorage`)
+- Configurable cache storage via exposed api `createPersistentStorage` (NodeJS only, Persistant) and class `MemoryStorage` (Browser and NodeJS, In-Memory)
 - Schema validation with Zod
 - Auto-handled timestamps
 - Presets (smart reusable queries)
@@ -129,7 +117,14 @@ npm install supawrapper @supabase/supabase-js zod
 
 ```ts
 import { createClient } from "@supabase/supabase-js";
-import { ClientWrapper, RealtimeListener, BroadcastChannel, defineTable } from "supawrapper";
+import { ClientWrapper, RealtimeListener, BroadcastChannel } from "supawrapper";
+import { createPersistentStorage, MemoryStorage } from "supawrapper/storage";
+
+// NodeJS only, Persistant
+const persistentStorage = createPersistentStorage("./cache");
+
+// Browser and NodeJS, In-Memory
+const memoryStorage = new MemoryStorage();
 
 const supabase = createClient(
   process.env.SUPABASE_URL!,
@@ -159,14 +154,13 @@ interface User {
 ## Create Wrapper
 
 ```ts
-const users = new ClientWrapper<User>(supabase, "users");
-
+const users = new ClientWrapper<User, typeof supabase>(supabase, "users");
 ```
 
 ## ⚙️ Client Configuration
 
 ```ts
-const users = new ClientWrapper<User>(
+const users = new ClientWrapper<User, typeof supabase>(
   supabase,
   "users",
   {
@@ -182,6 +176,11 @@ const users = new ClientWrapper<User>(
       enabled: true,
       ttl: 60000,
       maxEntries: 100,
+      // storage: yourStorage,
+    },
+    presets: {
+      isActiveKey: "is_active",
+      userIdKey: "user_id",
     },
     validator: {
       enabled: true,
@@ -225,6 +224,10 @@ interface TableBehaviour<Schema = unknown> {
     storage?: any;
     cleanupInterval?: number;
     autoCleanup?: boolean;
+  };
+  presets?: {
+    isActiveKey?: string;
+    userIdKey?: string;
   };
   validator?: {
     enabled?: boolean;
@@ -284,6 +287,11 @@ const defaultBehaviour = {
     maxEntries: 500,
     cleanupInterval: 60_000,
     autoCleanup: true,
+    // storage: memoryStorage // Uses Heap under the hood for speed as default storage
+  },
+  presets: {
+    isActiveKey: "is_active",
+    userIdKey: "user_id",
   }
 }
 ```
@@ -329,21 +337,35 @@ interface CacheConfig {
 ### Default Storage Fallback
 
 ```ts
-function getStorage(storage?: StorageAdapter): StorageAdapter {
+function getDefaultStorage(storage?: StorageAdapter): StorageAdapter {
   if (storage) return storage;
-  else if (
-    typeof window !== "undefined" &&
-    "localStorage" in window
-  ) return window.localStorage;
   else return new MemoryStorage();
 }
 ```
 
-- if user provides custom storage → use that
-- otherwise use browser `localStorage`
-- otherwise fallback to in-memory `MemoryStorage`
-- `MemoryStorage` internally uses `Map()`
-- ideal for Node.js / SSR / non-browser environments
+- If a user provides a custom storage adapter, Supawrapper prioritizes and uses that.
+- Otherwise, it falls back to the inbuilt storage adapter that relies on **Heap storage** (`MemoryStorage`) by default.
+- This default storage is **non-persistent** and will be entirely cleared upon every initialization.
+- Developers must explicitly provide discrete storage adapters for true persistence.
+- If using **Node.js**, you can easily configure persistent storage by utilizing the `createPersistentStorage` API exposed natively by `supawrapper/storage`.
+
+### Using Exported Storage Adapters
+
+Supawrapper exposes its internal `StorageAdapter` implementations directly, so you don't have to rewrite boilerplate cache logic:
+
+> **⚠️ Important:** The `createPersistentStorage` API relies on the internal `node:fs` and `node:path` modules. It might throw an error in inappropriate environments (such as browsers or edge runtimes). Therefore, make absolutely sure you have a proper Node.js environment when attempting to use it!
+
+```ts
+import { MemoryStorage, createPersistentStorage } from "supawrapper/storage";
+
+const users = new ClientWrapper<User, typeof supabase>(supabase, "users", {
+  cachingStrategy: {
+    enabled: true,
+    // Safely writes persistence caching to a local JSON file (Node.js only)
+    storage: createPersistentStorage("./cache/users"),
+  }
+});
+```
 
 ---
 
@@ -520,7 +542,7 @@ const userSchema = z.object({
   is_active: z.boolean().default(true),
 });
 
-const users = defineTable<User, Partial<User>, GetTableOpts<User>, UpdateTableOpts<User>>(
+const users = new ClientWrapper<User, typeof supabase>(
   supabase,
   "users",
   {
@@ -541,7 +563,7 @@ Invalid data throws a meaningful error before it ever reaches Supabase.
 Enable `autoTimestamps` to have `created_at` and `updated_at` managed for you. Key names are configurable.
 
 ```ts
-const users = defineTable<User, Partial<User>, GetTableOpts<User>, UpdateTableOpts<User>>(
+const users = new ClientWrapper<User, typeof supabase>(
   supabase,
   "users",
   {
@@ -669,8 +691,13 @@ Raw queries still go through Supawrapper's response and debug layer.
 
 ```ts
 import { z } from "zod";
-import { defineTable } from "supawrapper";
-import { GetTableOpts, UpdateTableOpts } from "supawrapper/types";
+import { ClientWrapper } from "supawrapper";
+import { createClient } from "@supabase/supabase-js";
+
+const supabase = createClient(
+  process.env.SUPABASE_URL!,
+  process.env.SUPABASE_ANON_KEY!
+);
 
 const postSchema = z.object({
   id: z.string().uuid().optional(),
@@ -688,7 +715,7 @@ interface Post {
   updated_at?: string;
 }
 
-const posts = defineTable<Post, Partial<Post>, GetTableOpts<Post>, UpdateTableOpts<Post>>(
+const posts = new ClientWrapper<Post, typeof supabase>(
   supabase,
   "posts",
   {
@@ -787,4 +814,4 @@ Contributions, issues, and feature requests are welcome!
 
 MIT License
 
-<p align="center">Made with ❤️ by Gomzyyy</p>
+<p align="center">Made with ❤️ by gomzyyy</p>
